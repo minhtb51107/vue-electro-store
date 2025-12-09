@@ -36,5 +36,12 @@ export default {
   calculateShippingFee(params) {
     // params: { districtId, wardCode, weight, insuranceValue }
     return axiosClient.get('/shipping/calculate', { params });
+  },
+
+  async verifyPayment(queryParams) {
+      // Backend trả về JSON kết quả
+      return await axiosClient.get('/payment/vn-pay-callback', { 
+          params: queryParams 
+      });
   }
 };

@@ -57,6 +57,15 @@ const router = createRouter({
         { path: 'cart', name: 'Cart', component: CartView },
         { path: 'checkout', name: 'Checkout', component: CheckoutView, meta: { requiresAuth: true } },
         { path: 'payment-result', name: 'PaymentResult', component: PaymentResultView },
+        // Thêm route này vào mảng routes
+        {
+          path: '/payment/result',
+          name: 'PaymentResult',
+          component: () => import('@/modules/cart/views/PaymentResultView.vue'),
+          meta: {
+            title: 'Kết quả thanh toán'
+          }
+        },
         
         // User Account
         { path: 'profile', name: 'UserProfile', component: UserProfileView, meta: { requiresAuth: true } },

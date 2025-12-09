@@ -114,6 +114,25 @@ export const useCartStore = defineStore('cart', {
            console.error("Lỗi tính phí ship:", e);
            this.shippingFee = 30000; // Fallback
        }
+    },
+
+    async verifyVnPayReturn(queryParams) {
+      this.isLoading = true;
+      try {
+        // [SỬA LẠI] Gọi qua Service
+        const data = await cartService.verifyPayment(queryParams);
+        
+        // Service trả về data trực tiếp (do response interceptor đã return response.data)
+        return { success: true, data: data }; 
+      } catch (err) {
+        console.error("Lỗi verify payment:", err);
+        return { 
+            success: false, 
+            message: err.message || 'Xác thực thanh toán thất bại' 
+        };
+      } finally {
+        this.isLoading = false;
+      }
     }
   }
 });
