@@ -75,6 +75,7 @@
                    </div>
                    <v-list-item to="/profile" prepend-icon="mdi-account-outline" title="Hồ sơ" density="compact"></v-list-item>
                    <v-list-item to="/order-history" prepend-icon="mdi-package-variant-closed" title="Đơn mua" density="compact"></v-list-item>
+                   <v-list-item to="/wishlist" prepend-icon="mdi-heart-outline" title="Yêu thích"></v-list-item>
                    <v-divider class="my-2"></v-divider>
                    <v-list-item @click="authStore.logout()" prepend-icon="mdi-logout" title="Đăng xuất" color="error" density="compact"></v-list-item>
                 </v-list>

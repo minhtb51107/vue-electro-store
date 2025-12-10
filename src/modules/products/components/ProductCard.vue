@@ -24,13 +24,43 @@
       
       <div class="position-absolute top-0 left-0 ma-4 d-flex gap-2">
          <v-chip v-if="isNew" color="black" size="x-small" variant="flat" class="font-weight-bold px-2">NEW</v-chip>
-         <v-chip v-if="discountPercent" color="error" size="x-small" variant="flat" class="font-weight-bold px-2">-{{ discountPercent }}%</v-chip>
+         <v-chip v-if="discountPercent > 0" color="error" size="x-small" variant="flat" class="font-weight-bold px-2">-{{ discountPercent }}%</v-chip>
       </div>
+
+      <v-fade-transition>
+        <div v-if="isHovering" class="position-absolute top-0 right-0 ma-4 d-flex flex-column gap-2" style="z-index: 2">
+            <v-btn
+                icon
+                size="small"
+                variant="flat"
+                :color="isLiked ? 'red-lighten-5' : 'white'"
+                class="shadow-sm"
+                @click.stop="toggleLike"
+            >
+                <v-icon :color="isLiked ? 'red' : 'grey-darken-2'" size="small">
+                    {{ isLiked ? 'mdi-heart' : 'mdi-heart-outline' }}
+                </v-icon>
+                <v-tooltip activator="parent" location="start">Yêu thích</v-tooltip>
+            </v-btn>
+
+            <v-btn
+                icon
+                size="small"
+                variant="flat"
+                :color="isInCompare ? 'blue-lighten-5' : 'white'"
+                class="shadow-sm"
+                @click.stop="toggleCompare"
+            >
+                <v-icon :color="isInCompare ? 'blue' : 'grey-darken-2'" size="small">mdi-compare</v-icon>
+                <v-tooltip activator="parent" location="start">So sánh</v-tooltip>
+            </v-btn>
+        </div>
+      </v-fade-transition>
 
       <v-fade-transition>
         <v-btn
           v-if="isHovering"
-          icon="mdi-shopping-outline"
+          icon="mdi-cart-plus"
           variant="flat"
           color="black"
           class="position-absolute bottom-0 right-0 ma-4 add-btn shadow-lg"
@@ -76,31 +106,77 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useCartStore } from '@/modules/cart/store/cart.store';
+import { useProductStore } from '../store/product.store';
+import { useAuthStore } from '@/modules/auth/store/auth.store';
+import productService from '../services/product.service'; // [NEW] Import service
 
 const props = defineProps({
   product: { type: Object, required: true }
 });
 
 const router = useRouter();
-const cartStore = useCartStore();
-const isHovering = ref(false); // State để quản lý hiệu ứng hover
+const productStore = useProductStore();
+const authStore = useAuthStore();
 
-const isNew = computed(() => true); // Logic check ngày tạo (nếu có)
+const isHovering = ref(false);
+const isLiked = ref(false);
+
+// [NEW] Check Wishlist khi load
+onMounted(async () => {
+    if (authStore.isAuthenticated) {
+        try {
+            // Gọi API kiểm tra (trả về true/false)
+            // Lưu ý: Backend cần có API /wishlists/{id}/check trả về Boolean
+            const res = await productService.checkWishlist(props.product.id);
+            isLiked.value = !!res; 
+        } catch (e) {
+            // Lỗi thì coi như chưa like
+        }
+    }
+});
+
+const isNew = computed(() => {
+    if (!props.product.createdAt) return false;
+    const createdDate = new Date(props.product.createdAt);
+    const diffTime = Math.abs(new Date() - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 30;
+});
 
 const discountPercent = computed(() => {
    if(!props.product.originalPrice || props.product.originalPrice <= props.product.price) return 0;
    return Math.round(((props.product.originalPrice - props.product.price) / props.product.originalPrice) * 100);
 });
 
+const isInCompare = computed(() => productStore.compareIds.includes(props.product.id));
+
 const navigate = () => {
   router.push({ name: 'ProductDetail', params: { slug: props.product.slug } });
 };
 
-const quickAdd = async () => {
-    navigate(); // Demo: Vào trang chi tiết
+const quickAdd = () => {
+    navigate(); 
+};
+
+const toggleLike = async () => {
+    if (!authStore.isAuthenticated) {
+        alert('Vui lòng đăng nhập để thêm vào yêu thích!');
+        router.push({ name: 'Login' });
+        return;
+    }
+    // Gọi Store action (đã gọi API)
+    const success = await productStore.toggleWishlist(props.product.id);
+    if (success) isLiked.value = !isLiked.value;
+};
+
+const toggleCompare = () => {
+    if (isInCompare.value) {
+        productStore.removeFromCompare(props.product.id);
+    } else {
+        productStore.addToCompare(props.product.id);
+    }
 };
 
 const formatCurrency = (value) => {

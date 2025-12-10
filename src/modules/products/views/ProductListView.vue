@@ -169,6 +169,29 @@
             </v-col>
          </v-row>
       </div>
+
+      <v-snackbar
+        v-model="showCompareBar"
+        :timeout="-1"
+        color="grey-darken-4"
+        location="bottom center"
+        rounded="pill"
+        class="mb-6"
+        elevation="10"
+      >
+        <div class="d-flex align-center">
+            <v-icon color="blue-lighten-2" class="mr-2">mdi-compare</v-icon>
+            <span class="font-weight-medium">Đang chọn {{ compareCount }} sản phẩm để so sánh</span>
+        </div>
+        <template v-slot:actions>
+          <v-btn color="blue-lighten-2" variant="text" class="font-weight-bold" to="/compare">
+            So sánh ngay
+          </v-btn>
+          <v-btn icon size="small" variant="text" @click="productStore.clearCompare">
+             <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </template>
+      </v-snackbar>
   
     </v-container>
   </v-main>
@@ -178,12 +201,18 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useProductStore } from '../store/product.store';
 import { useRoute } from 'vue-router';
+import { storeToRefs } from 'pinia'; // [MỚI] Import storeToRefs
 import ProductCard from '../components/ProductCard.vue';
 import ProductFilter from '../components/ProductFilter.vue';
   
 const productStore = useProductStore();
 const route = useRoute();
   
+// [MỚI] Lấy state reactive cho compare bar
+const { compareIds } = storeToRefs(productStore);
+const compareCount = computed(() => compareIds.value.length);
+const showCompareBar = computed(() => compareIds.value.length > 0);
+
 const currentPage = ref(1);
 const sortBy = ref('createdAt,desc');
   
@@ -236,7 +265,7 @@ const changePage = (page) => {
 </script>
   
 <style scoped>
-/* Tinh chỉnh CSS cho cảm giác cao cấp */
+/* CSS cũ giữ nguyên */
 .min-h-screen {
     min-height: 100vh;
 }
@@ -250,7 +279,6 @@ const changePage = (page) => {
     box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
 }
 
-/* Hiệu ứng hover bay lên nhẹ */
 .hover-lift {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -259,7 +287,6 @@ const changePage = (page) => {
     box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1) !important;
 }
 
-/* Hiệu ứng zoom ảnh nhẹ khi hover */
 .zoom-effect {
     transition: transform 0.5s ease;
 }
@@ -268,12 +295,10 @@ const changePage = (page) => {
     transform: scale(1.03);
 }
 
-/* Gradient tối dần để text dễ đọc trên banner */
 .bg-gradient-overlay {
     background: linear-gradient(to right, rgba(0,0,0,0.6), transparent);
 }
 
-/* Font size lớn hơn cho tiêu đề */
 .text-h4 {
     letter-spacing: -0.02em !important;
 }

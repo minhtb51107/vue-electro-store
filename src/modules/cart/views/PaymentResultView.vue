@@ -1,98 +1,94 @@
 <template>
-  <v-container class="fill-height">
-    <v-row justify="center" align="center">
-      <v-col cols="12" sm="8" md="6">
-        <v-card class="text-center pa-6 rounded-lg shadow-soft" :loading="loading">
-          
-          <div v-if="loading" class="py-10">
-            <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-            <div class="mt-4 text-body-1 text-grey">Đang xác thực giao dịch...</div>
-          </div>
+  <v-container class="fill-height justify-center">
+    <v-card class="pa-8 text-center rounded-xl shadow-card" width="500" :loading="loading">
+      
+      <div v-if="loading" class="py-8">
+        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+        <div class="mt-4 text-body-1 text-grey">Đang xác thực giao dịch...</div>
+      </div>
 
-          <div v-else-if="result && result.status === '00'">
-            <v-icon color="success" size="80" class="mb-4">mdi-check-circle</v-icon>
-            <h2 class="text-h4 font-weight-bold text-success mb-2">Thanh toán thành công!</h2>
-            <p class="text-body-1 text-grey mb-6">Cảm ơn bạn đã mua hàng tại Spring Electro Store.</p>
-            
-            <v-divider class="mb-4"></v-divider>
-            
-            <div class="d-flex justify-space-between mb-2">
-              <span class="text-grey">Mã đơn hàng:</span>
-              <span class="font-weight-bold">#{{ result.orderId }}</span>
-            </div>
-            <div class="d-flex justify-space-between mb-6">
-              <span class="text-grey">Số tiền:</span>
-              <span class="font-weight-bold text-primary">{{ formatCurrency(result.amount) }}</span>
-            </div>
+      <div v-else-if="success">
+        <v-icon icon="mdi-check-circle" color="success" size="80" class="mb-4 animate-bounce"></v-icon>
+        <h2 class="text-h5 font-weight-bold text-success mb-2">Thanh toán thành công!</h2>
+        <p class="text-body-1 text-grey-darken-1 mb-6">
+          Đơn hàng <strong>#{{ orderId }}</strong> của bạn đã được xác nhận.
+          <br>Email xác nhận đã được gửi tới bạn.
+        </p>
+        <div class="d-flex flex-column gap-2">
+            <v-btn color="primary" :to="`/order-history/${orderId}`" block size="large">Xem đơn hàng</v-btn>
+            <v-btn variant="text" to="/" block>Về trang chủ</v-btn>
+        </div>
+      </div>
 
-            <v-btn color="primary" block size="large" :to="{ name: 'OrderDetail', params: { id: result.orderId } }">
-              Xem chi tiết đơn hàng
-            </v-btn>
-            <v-btn variant="text" block class="mt-2" to="/">
-              Về trang chủ
-            </v-btn>
-          </div>
+      <div v-else>
+        <v-icon icon="mdi-alert-circle" color="error" size="80" class="mb-4"></v-icon>
+        <h2 class="text-h5 font-weight-bold text-error mb-2">Thanh toán thất bại</h2>
+        <p class="text-body-1 text-grey-darken-1 mb-6">
+          {{ errorMessage || 'Có lỗi xảy ra trong quá trình thanh toán.' }}
+        </p>
+        <v-btn color="primary" to="/checkout" block size="large">Thử lại</v-btn>
+        <v-btn variant="text" to="/" block class="mt-2">Về trang chủ</v-btn>
+      </div>
 
-          <div v-else>
-            <v-icon color="error" size="80" class="mb-4">mdi-alert-circle</v-icon>
-            <h2 class="text-h4 font-weight-bold text-error mb-2">Thanh toán thất bại</h2>
-            <p class="text-body-1 text-grey mb-6">
-              {{ result?.message || 'Có lỗi xảy ra trong quá trình thanh toán.' }}
-            </p>
-            
-            <v-alert type="warning" variant="tonal" class="mb-6 text-left" v-if="result?.status !== '99'">
-               Giao dịch đã bị hủy hoặc lỗi từ ngân hàng. Đơn hàng của bạn đã bị hủy và hoàn kho.
-            </v-alert>
-
-            <v-btn color="primary" block size="large" to="/cart">
-              Thử thanh toán lại
-            </v-btn>
-            <v-btn variant="text" block class="mt-2" to="/">
-              Về trang chủ
-            </v-btn>
-          </div>
-
-        </v-card>
-      </v-col>
-    </v-row>
+    </v-card>
   </v-container>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { useCartStore } from '../store/cart.store';
+import axiosClient from '@/api/axiosClient';
 
 const route = useRoute();
-const cartStore = useCartStore();
-
 const loading = ref(true);
-const result = ref(null);
-
-const formatCurrency = (value) => {
-    if (!value) return '0 ₫';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-};
+const success = ref(false);
+const errorMessage = ref('');
+const orderId = ref(null); // Lấy từ response của VNPay (vnp_TxnRef)
 
 onMounted(async () => {
-  // Lấy toàn bộ query params từ URL (vnp_Amount, vnp_ResponseCode, vnp_SecureHash...)
-  const queryParams = route.query;
+  // Lấy toàn bộ query params từ URL do VNPay trả về
+  const params = route.query;
 
-  // Nếu không có tham số, coi như lỗi
-  if (Object.keys(queryParams).length === 0) {
+  // Nếu không có param nào -> Người dùng tự gõ link -> Báo lỗi
+  if (Object.keys(params).length === 0) {
       loading.value = false;
+      success.value = false;
+      errorMessage.value = "Thông tin giao dịch không hợp lệ.";
       return;
   }
 
-  // Gọi Store để verify với Backend
-  const res = await cartStore.verifyVnPayReturn(queryParams);
-  
-  if (res.success) {
-      result.value = res.data; // Data backend trả về: {status: "00", message: "...", orderId: "15"}
-  } else {
-      result.value = { status: '99', message: res.message };
+  try {
+    // [QUAN TRỌNG] Gọi Backend để verify checksum
+    const res = await axiosClient.get('/payment/vn-pay-callback', { params });
+    
+    // Backend trả về PaymentCallbackResponse { status: "00", message: "...", data: {...} }
+    if (res.status === '00') {
+        success.value = true;
+        // vnp_TxnRef thường là mã đơn hàng
+        orderId.value = params.vnp_TxnRef; 
+    } else {
+        success.value = false;
+        errorMessage.value = res.message || 'Giao dịch bị từ chối.';
+    }
+  } catch (error) {
+    console.error(error);
+    success.value = false;
+    errorMessage.value = error.message || 'Lỗi kết nối tới hệ thống.';
+  } finally {
+    loading.value = false;
   }
-  
-  loading.value = false;
 });
 </script>
+
+<style scoped>
+.shadow-card {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+}
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+</style>
